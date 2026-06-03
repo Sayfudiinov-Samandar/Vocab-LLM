@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Detail</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to list</a>
+        <div id="wordDetail" class="word-detail">
+            <!-- Detail loaded dynamically -->
+        </div>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const wordId = params.get('id');
+        
+        async function loadWord() {
+            const res = await fetch(`/api/words/${wordId}`);
+            const word = await res.json();
+            
+            const collocations = JSON.parse(word.collocations || '[]');
+            const synonyms = JSON.parse(word.synonyms || '[]');
+            const antonyms = JSON.parse(word.antonyms || '[]');
+            
+            document.getElementById('wordDetail').innerHTML = `
+                <div class="word-card detail">
+                    <h1>${word.word} <span class="phonetic">${word.phonetic || ''}</span></h1>
+                    <div class="pos">${word.part_of_speech || ''}</div>
+                    <div class="meaning">${word.chinese_meaning || ''}</div>
+                    
+                    <div class="section">
+                        <h3>📝 Example</h3>
+                        <p class="example">"${word.example_sentence}"</p>
+                        <p class="translation">${word.chinese_translation || ''}</p>
+                        <a href="${word.source_url}" target="_blank" class="source-link">
+                            📰 Source: ${word.source_name || 'News'} ↗
+                        </a>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>📌 Collocations</h3>
+                        <ul>${collocations.map(c => `<li>${c}</li>`).join('')}</ul>
+                    </div>
+                    
+                    <div class="section">
+                        <h3>🔄 Synonyms & Antonyms</h3>
+                        <p><strong>Synonyms:</strong> ${synonyms.join(', ')}</p>
+                        <p><strong>Antonyms:</strong> ${antonyms.join(', ')}</p>
+                    </div>
+                    
+                    <button onclick="deleteWord(${word.id})" class="btn-delete">🗑️ Delete</button>
+                </div>
+            `;
+        }
+        
+        async function deleteWord(id) {
+            if (!confirm('Delete this word?')) return;
+            await fetch(`/api/words/${id}`, { method: 'DELETE' });
+            window.location.href = 'index.html';
+        }
+        
+        loadWord();
+    </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Words</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to list</a>
+        <h1>🎯 Spaced Repetition Review</h1>
+        <div id="reviewContainer" class="review-container">
+            <!-- Review cards loaded dynamically -->
+        </div>
+    </div>
+    <script>
+        let currentWords = [];
+        let currentIndex = 0;
+        
+        async function loadDueWords() {
+            const res = await fetch('/api/review/due');
+            currentWords = await res.json();
+            currentIndex = 0;
+            showCard();
+        }
+        
+        function showCard() {
+            const container = document.getElementById('reviewContainer');
+            
+            if (currentIndex >= currentWords.length) {
+                container.innerHTML = '<div class="done">🎉 All done! No more words due.</div>';
+                return;
+            }
+            
+            const word = currentWords[currentIndex];
+            container.innerHTML = `
+                <div class="review-card">
+                    <div class="word-front">
+                        <h2>${word.word}</h2>
+                        <p class="phonetic">${word.phonetic || ''}</p>
+                        <p class="example">"${word.example_sentence}"</p>
+                    </div>
+                    <div class="word-back hidden">
+                        <p class="meaning">${word.chinese_meaning}</p>
+                        <p class="translation">${word.chinese_translation || ''}</p>
+                    </div>
+                    <div class="actions">
+                        <button onclick="reveal()" class="btn-reveal">👁️ Reveal Meaning</button>
+                        <div class="review-actions hidden">
+                            <button onclick="submitReview(false)" class="btn-hard">❌ Again</button>
+                            <button onclick="submitReview(true)" class="btn-easy">✅ Good</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="progress">${currentIndex + 1} / ${currentWords.length}</div>
+            `;
+        }
+        
+        function reveal() {
+            document.querySelector('.word-back').classList.remove('hidden');
+            document.querySelector('.btn-reveal').classList.add('hidden');
+            document.querySelector('.review-actions').classList.remove('hidden');
+        }
+        
+        async function submitReview(known) {
+            const word = currentWords[currentIndex];
+            await fetch(`/api/review/${word.id}?known=${known}`, { method: 'POST' });
+            currentIndex++;
+            showCard();
+        }
+        
+        loadDueWords();
+    </script>
+</body>
+</html>

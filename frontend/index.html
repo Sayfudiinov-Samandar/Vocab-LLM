@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vocabulary Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 AI Vocabulary Assistant</h1>
+            <p>Learn words with real news examples</p>
+        </header>
+        
+        <div class="add-section">
+            <input type="text" id="wordInput" placeholder="Enter a word (e.g., sanction)" />
+            <button onclick="addWord()">➕ Add Word</button>
+            <button onclick="loadWords()">🔄 Refresh</button>
+            <a href="review.html" class="btn-review">🎯 Review</a>
+        </div>
+        
+        <div id="loading" class="loading hidden">Searching real news sources...</div>
+        
+        <div id="wordList" class="word-list">
+            <!-- Words loaded dynamically -->
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

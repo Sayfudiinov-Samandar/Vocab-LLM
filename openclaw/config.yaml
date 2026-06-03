@@ -1,0 +1,58 @@
+project:
+  name: "ai-vocab-assistant"
+  version: "1.0.0"
+  description: "AI-powered vocabulary learning with real news examples"
+
+platform:
+  type: telegram
+  token: "${TELEGRAM_BOT_TOKEN}"
+  webhook:
+    enabled: true
+    url: "${WEBHOOK_URL}/telegram/webhook"
+    port: 8000
+
+commands:
+  - name: start
+    description: "Show welcome message"
+    pattern: "^/start$"
+    
+  - name: add
+    description: "Add a word via Example Search Agent"
+    pattern: "^/add\\s+(\\w+)$"
+    
+  - name: query
+    description: "Query a word from your vocabulary"
+    pattern: "^/query\\s+(\\w+)$"
+    
+  - name: list
+    description: "List your vocabulary"
+    pattern: "^/list$"
+    
+  - name: review
+    description: "Start spaced repetition review"
+    pattern: "^/review$"
+    
+  - name: quiz
+    description: "Take a quick quiz"
+    pattern: "^/quiz$"
+    
+  - name: delete
+    description: "Remove a word"
+    pattern: "^/delete\\s+(\\w+)$"
+
+llm:
+  provider: openai_compatible
+  base_url: "${QWEN_BASE_URL}"
+  api_key: "${QWEN_API_KEY}"
+  model: "qwen-plus"
+  temperature: 0.3
+
+integrations:
+  search:
+    provider: tavily
+    api_key: "${TAVILY_API_KEY}"
+    max_results: 3
+    
+  database:
+    provider: sqlite
+    path: "./vocab.db"
