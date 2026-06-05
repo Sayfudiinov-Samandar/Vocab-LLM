@@ -6,11 +6,17 @@ from contextlib import asynccontextmanager
 from .database import init_db
 from .web_routes import router as web_router
 from .telegram_bot import router as telegram_router, set_webhook
+from .openclaw_wrapper import create_openclaw_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Starting up...")
     init_db()
+    
+    # OpenClaw integration
+    openclaw_app = create_openclaw_app()
+    print(f"✅ OpenClaw initialized: {openclaw_app.platform}")
+    
     await set_webhook()
     print("✅ Ready")
     yield
@@ -39,3 +45,5 @@ app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    
+    
