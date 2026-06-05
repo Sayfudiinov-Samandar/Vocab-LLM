@@ -10,10 +10,10 @@ from backend.agent import ExampleSearchAgent
 router = APIRouter(prefix="/telegram")
 bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
 
-# ─── KEYBOARD MARKUPS ─────────────────────────────────────────
+# Simple in-memory state storage (resets on redeploy, but works for demo)
+user_states = {}
 
 def main_menu_keyboard():
-    """Main menu with buttons."""
     keyboard = [
         [InlineKeyboardButton("➕ Add Word", callback_data="menu_add")],
         [InlineKeyboardButton("🔍 Query Word", callback_data="menu_query"),
@@ -24,43 +24,22 @@ def main_menu_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def back_keyboard():
-    """Back to main menu button."""
     keyboard = [[InlineKeyboardButton("← Back to Menu", callback_data="menu_main")]]
     return InlineKeyboardMarkup(keyboard)
 
-# ─── COMMAND HANDLERS ─────────────────────────────────────────
-
-async def start_command(update: Update, context):
-    """Handle /start with buttons."""
+async def start_command(update: Update, context=None):
     welcome = """📚 *AI Vocabulary Assistant*
 
 Learn English words with *real news examples*!
 
 Choose an option below:"""
-    
     await update.message.reply_text(
         welcome, 
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=main_menu_keyboard()
     )
 
-async def help_command(update: Update, context):
-    """Show help text."""
-    help_text = """*How to use:*
-
-➕ *Add Word* — Type any word to search real news
-🔍 *Query Word* — Look up saved words
-📚 *My List* — See all your vocabulary
-🔄 *Review* — Spaced repetition practice
-🎯 *Quiz* — Test your knowledge
-
-You can also type words directly!"""
-    await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
-
-# ─── CALLBACK HANDLERS (Button Clicks) ────────────────────────
-
-async def handle_callback(update: Update, context):
-    """Handle button clicks."""
+async def handle_callback(update: Update, context=None):
     query = update.callback_query
     await query.answer()
     
@@ -69,84 +48,104 @@ async def handle_callback(update: Update, context):
         telegram_id=str(update.effective_user.id),
         username=update.effective_user.username
     )
+    user_id = user["id"]
+    telegram_id = str(update.effective_user.id)
     
     if data == "menu_main":
-        await query.edit_message_text(
-            "📚 *Main Menu*\n\nChoose an option:",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=main_menu_keyboard()
-        )
+        try:
+            await query.edit_message_text(
+                "📚 *Main Menu*\n\nChoose an option:",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=main_menu_keyboard()
+            )
+        except:
+            await query.message.reply_text(
+                "📚 *Main Menu*",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=main_menu_keyboard()
+            )
     
     elif data == "menu_add":
-        await query.edit_message_text(
-            "➕ *Add Word*\n\nType the word you want to add:\n\nExample: `economy`, `sanction`, `abandon`",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=back_keyboard()
-        )
-        # Store state that user is in "add mode"
-        context.user_data["state"] = "waiting_for_word_to_add"
+        user_states[telegram_id] = "waiting_for_word_to_add"
+        try:
+            await query.edit_message_text(
+                "➕ *Add Word*\n\nType the word you want to add:\n\nExample: `economy`, `sanction`, `abandon`",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=back_keyboard()
+            )
+        except:
+            await query.message.reply_text(
+                "➕ *Add Word*\n\nType the word:",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=back_keyboard()
+            )
     
     elif data == "menu_query":
-        await query.edit_message_text(
-            "🔍 *Query Word*\n\nType the word you want to look up:",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=back_keyboard()
-        )
-        context.user_data["state"] = "waiting_for_word_to_query"
+        user_states[telegram_id] = "waiting_for_word_to_query"
+        try:
+            await query.edit_message_text(
+                "🔍 *Query Word*\n\nType the word you want to look up:",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=back_keyboard()
+            )
+        except:
+            await query.message.reply_text(
+                "🔍 *Query Word*\n\nType the word:",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=back_keyboard()
+            )
     
     elif data == "menu_list":
-        await show_list(query, user["id"])
+        await show_list(query, user_id, edit=True)
     
     elif data == "menu_review":
-        await show_review(query, user["id"])
+        await show_review(query, user_id, edit=True)
     
     elif data == "menu_quiz":
-        await show_quiz(query, user["id"])
+        await show_quiz(query, user_id, edit=True)
     
     elif data.startswith("know_"):
         word_id = int(data.split("_")[1])
-        await handle_review_result(query, word_id, user["id"], known=True)
+        await handle_review_result(query, word_id, user_id, known=True)
     
     elif data.startswith("dontknow_"):
         word_id = int(data.split("_")[1])
-        await handle_review_result(query, word_id, user["id"], known=False)
+        await handle_review_result(query, word_id, user_id, known=False)
     
     elif data.startswith("delete_"):
         word_id = int(data.split("_")[1])
-        await handle_delete(query, word_id, user["id"])
+        await handle_delete(query, word_id, user_id)
 
-async def show_list(query, user_id):
-    """Show vocabulary list."""
+async def show_list(query, user_id, edit=False):
     words = get_words(user_id, limit=20)
     
     if not words:
-        await query.edit_message_text(
-            "📭 Your vocabulary is empty!\n\nClick ➕ *Add Word* to start.",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=main_menu_keyboard()
-        )
-        return
+        msg = "📭 Your vocabulary is empty!\n\nClick ➕ *Add Word* to start."
+    else:
+        msg = "📚 *Your Vocabulary* (last 20)\n\n"
+        for i, w in enumerate(words, 1):
+            msg += f"{i}. *{w['word']}* — {w['chinese_meaning']}\n"
     
-    msg = "📚 *Your Vocabulary* (last 20)\n\n"
-    for i, w in enumerate(words, 1):
-        msg += f"{i}. *{w['word']}* — {w['chinese_meaning']}\n"
-    
-    await query.edit_message_text(
-        msg,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=main_menu_keyboard()
-    )
+    if edit:
+        try:
+            await query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+        except:
+            await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+    else:
+        await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
 
-async def show_review(query, user_id):
-    """Show review card."""
+async def show_review(query, user_id, edit=False):
     due = get_due_reviews(user_id)
     
     if not due:
-        await query.edit_message_text(
-            "🎉 *No words due for review!*\n\nYou're all caught up. Great job!",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=main_menu_keyboard()
-        )
+        msg = "🎉 *No words due for review!*\n\nYou're all caught up. Great job!"
+        if edit:
+            try:
+                await query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+            except:
+                await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+        else:
+            await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
         return
     
     word = due[0]
@@ -163,14 +162,15 @@ async def show_review(query, user_id):
 
 Do you remember the meaning?"""
     
-    await query.edit_message_text(
-        msg,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    if edit:
+        try:
+            await query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+        except:
+            await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_review_result(query, word_id, user_id, known):
-    """Handle review answer."""
     from backend.database import update_review
     quality = 4 if known else 1
     update_review(word_id, user_id, quality)
@@ -180,20 +180,21 @@ async def handle_review_result(query, word_id, user_id, known):
     else:
         await query.answer("❌ Will review again soon!")
     
-    # Show next word or finish
-    await show_review(query, user_id)
+    await show_review(query, user_id, edit=False)
 
-async def show_quiz(query, user_id):
-    """Show quiz question."""
+async def show_quiz(query, user_id, edit=False):
     import random
     words = get_words(user_id, limit=50)
     
     if len(words) < 4:
-        await query.edit_message_text(
-            "❌ Need at least 4 words for a quiz!\n\nAdd more words first.",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=main_menu_keyboard()
-        )
+        msg = "❌ Need at least 4 words for a quiz!\n\nAdd more words first."
+        if edit:
+            try:
+                await query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+            except:
+                await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
+        else:
+            await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
         return
     
     target = random.choice(words)
@@ -211,51 +212,46 @@ async def show_quiz(query, user_id):
 
 What does *{target['word']}* mean?"""
     
-    await query.edit_message_text(
-        msg,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    if edit:
+        try:
+            await query.edit_message_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+        except:
+            await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_delete(query, word_id, user_id):
-    """Delete word and confirm."""
     delete_word(word_id, user_id)
     await query.answer("🗑️ Word deleted!")
-    await query.edit_message_text(
-        "✅ Word deleted successfully!",
-        reply_markup=main_menu_keyboard()
-    )
+    try:
+        await query.edit_message_text("✅ Word deleted successfully!", reply_markup=main_menu_keyboard())
+    except:
+        await query.message.reply_text("✅ Word deleted successfully!", reply_markup=main_menu_keyboard())
 
-# ─── TEXT MESSAGE HANDLER (When user types a word) ────────────
-
-async def handle_text(update: Update, context):
-    """Handle regular text messages (words typed by user)."""
+async def handle_text(update: Update, context=None):
     text = update.message.text.strip().lower()
     user = get_or_create_user(
         telegram_id=str(update.effective_user.id),
         username=update.effective_user.username
     )
+    user_id = user["id"]
+    telegram_id = str(update.effective_user.id)
     
-    # Check if user is in a specific mode
-    state = context.user_data.get("state", "")
+    state = user_states.get(telegram_id, "")
     
     if state == "waiting_for_word_to_add":
-        # User typed a word to add
-        context.user_data["state"] = ""  # Clear state
-        await add_word_flow(update, text, user["id"])
+        user_states[telegram_id] = ""
+        await add_word_flow(update, text, user_id)
     
     elif state == "waiting_for_word_to_query":
-        # User typed a word to query
-        context.user_data["state"] = ""  # Clear state
-        await query_word_flow(update, text, user["id"])
+        user_states[telegram_id] = ""
+        await query_word_flow(update, text, user_id)
     
     else:
         # Default: treat as add word
-        await add_word_flow(update, text, user["id"])
+        await add_word_flow(update, text, user_id)
 
 async def add_word_flow(update, word, user_id):
-    """Add word with loading indicator."""
-    # Send loading message
     loading_msg = await update.message.reply_text(f"⏳ Searching real news for *{word}*...", parse_mode=ParseMode.MARKDOWN)
     
     try:
@@ -270,7 +266,6 @@ async def add_word_flow(update, word, user_id):
             )
             return
         
-        # Format success message
         collocations = "\n".join([f"• {c}" for c in result.get("collocations", [])])
         synonyms = ", ".join(result.get("synonyms", []))
         antonyms = ", ".join(result.get("antonyms", []))
@@ -308,7 +303,6 @@ _{result['example']}_
         await loading_msg.edit_text("❌ Error searching for word. Try again.", reply_markup=main_menu_keyboard())
 
 async def query_word_flow(update, word, user_id):
-    """Query word from database."""
     result = get_word_by_name(word.lower(), user_id)
     
     if not result:
@@ -347,8 +341,6 @@ _{result['example_sentence']}_
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ─── WEBHOOK ENDPOINT ────────────────────────────────────────────
-
 @router.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
@@ -361,10 +353,7 @@ async def telegram_webhook(request: Request):
                 
                 if text.startswith("/start"):
                     await start_command(update, None)
-                elif text.startswith("/help"):
-                    await help_command(update, None)
                 else:
-                    # Handle regular text (words typed by user)
                     await handle_text(update, None)
         
         elif update.callback_query:
@@ -374,7 +363,7 @@ async def telegram_webhook(request: Request):
         
     except Exception as e:
         print(f"[Webhook Error] {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"ok": True}  # Don't return 500 to Telegram
 
 async def set_webhook():
     webhook_url = f"{settings.WEBHOOK_URL}/telegram/webhook"
