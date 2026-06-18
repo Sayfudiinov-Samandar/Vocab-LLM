@@ -1,12 +1,28 @@
-﻿fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
-python-telegram-bot>=20.7
-pydantic>=2.5.3
-pydantic-settings>=2.1.0
-tavily-python>=0.3.1
-python-multipart>=0.0.6
-httpx>=0.28.0,<0.29
-requests>=2.31.0
-tenacity>=8.0.0
-openclaw>=0.1.0
-cmdop>=2026.4.7.2
+﻿# fastapi>=0.109.0
+# uvicorn[standard]>=0.27.0
+# python-telegram-bot>=20.7
+# pydantic>=2.5.3
+# pydantic-settings>=2.1.0
+# tavily-python>=0.3.1
+# python-multipart>=0.0.6
+# httpx>=0.28.0,<0.29
+# requests>=2.31.0
+# tenacity>=8.0.0
+# openclaw>=0.1.0
+# cmdop>=2026.4.7.2
+
+
+
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+python-multipart
+openai
+tavily-python
+httpx
+tenacity
+pyyaml
+python-telegram-bot
+sqlalchemy
