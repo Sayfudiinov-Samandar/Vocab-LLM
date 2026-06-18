@@ -16,9 +16,12 @@ class Settings(BaseSettings):
     TAVILY_MAX_RESULTS: int = 3
     
     # App Config
-    DATABASE_URL: str = "sqlite:///./vocab.db"
+    DATABASE_URL: str = "sqlite:///./data/vocab.db"
     WEBHOOK_URL: str
     SECRET_KEY: str = "default-secret-key-change-in-production"
+
+    # Telegram delivery: "polling" for local development, "webhook" for public deployment.
+    TELEGRAM_DELIVERY: str = "polling"
     
     class Config:
         env_file = ".env"

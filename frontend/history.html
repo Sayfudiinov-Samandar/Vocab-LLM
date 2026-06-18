@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning History</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="page-header">
+            <a href="index.html" class="back-link">Back to dashboard</a>
+            <a href="/api/vocab/export.csv" class="secondary-link">Export CSV</a>
+        </header>
+        <section class="history-card">
+            <span class="eyebrow">Learning records</span>
+            <h1>History and review activity</h1>
+            <div id="records" class="history-list">Loading records...</div>
+        </section>
+    </div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        async function loadRecords() {
+            const recordsEl = document.getElementById('records');
+            const res = await fetch('/api/learning/records?limit=100');
+            const records = await res.json();
+            if (!records.length) {
+                recordsEl.innerHTML = '<div class="empty-state">No learning records yet.</div>';
+                return;
+            }
+            recordsEl.innerHTML = records.map(record => `
+                <div class="history-item">
+                    <strong>${escapeHtml(record.event_type)}</strong>
+                    <span>${escapeHtml(record.word_text || '-')}</span>
+                    <span>${escapeHtml(record.created_at || '')}</span>
+                </div>
+            `).join('');
+        }
+
+        loadRecords();
+    </script>
+</body>
+</html>

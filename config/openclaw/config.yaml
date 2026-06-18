@@ -11,34 +11,48 @@ platform:
     url: "${WEBHOOK_URL}/telegram/webhook"
     port: 8000
 
+gateway:
+  enabled: true
+  endpoint: "${WEBHOOK_URL}/openclaw/gateway"
+  local_endpoint: "http://localhost:8000/openclaw/gateway"
+  health: "${WEBHOOK_URL}/openclaw/health"
+
 commands:
   - name: start
     description: "Show welcome message"
-    pattern: "^/start$"
+    pattern: "^/?start$"
     
   - name: add
     description: "Add a word via Example Search Agent"
-    pattern: "^/add\\s+(\\w+)$"
+    pattern: "^/?add\\s+(\\w+)$"
     
   - name: query
     description: "Query a word from your vocabulary"
-    pattern: "^/query\\s+(\\w+)$"
+    pattern: "^/?query\\s+(\\w+)$"
     
   - name: list
     description: "List your vocabulary"
-    pattern: "^/list$"
+    pattern: "^/?list$"
     
   - name: review
     description: "Start spaced repetition review"
-    pattern: "^/review$"
+    pattern: "^/?review$"
     
   - name: quiz
     description: "Take a quick quiz"
-    pattern: "^/quiz$"
+    pattern: "^/?quiz$"
     
   - name: delete
     description: "Remove a word"
-    pattern: "^/delete\\s+(\\w+)$"
+    pattern: "^/?delete\\s+(\\w+)$"
+
+  - name: update
+    description: "Update notes for a saved word"
+    pattern: "^/?update\\s+(\\w+)(\\s+\\|\\s+.+)?$"
+
+  - name: stats
+    description: "Show learning statistics"
+    pattern: "^/?stats$"
 
 llm:
   provider: openai_compatible
@@ -55,4 +69,4 @@ integrations:
     
   database:
     provider: sqlite
-    path: "./vocab.db"
+    path: "./data/vocab.db"

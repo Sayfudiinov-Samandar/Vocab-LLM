@@ -4,12 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Words</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <a href="index.html" class="back-link">← Back to list</a>
-        <h1>🎯 Spaced Repetition Review</h1>
+    <div class="page-shell">
+        <header class="page-header">
+            <a href="index.html" class="back-link">Back to dashboard</a>
+            <a href="quiz.html" class="secondary-link">Quiz Mode</a>
+        </header>
+        <h1>Spaced Repetition Review</h1>
+        <div class="actions">
+            <button id="dueModeBtn" onclick="setReviewMode('due')" class="btn-secondary">Due Words</button>
+            <button id="allModeBtn" onclick="setReviewMode('all')" class="secondary-link">All Words</button>
+        </div>
         <div id="reviewContainer" class="review-container">
             <!-- Review cards loaded dynamically -->
         </div>
@@ -17,59 +24,98 @@
     <script>
         let currentWords = [];
         let currentIndex = 0;
-        
+        let reviewMode = 'due';
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function speak(text) {
+            if (!('speechSynthesis' in window)) {
+                alert('Audio is not supported in this browser.');
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.92;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function setReviewMode(mode) {
+            reviewMode = mode;
+            document.getElementById('dueModeBtn').className = mode === 'due' ? 'btn-secondary' : 'secondary-link';
+            document.getElementById('allModeBtn').className = mode === 'all' ? 'btn-secondary' : 'secondary-link';
+            loadReviewWords();
+        }
+
         async function loadDueWords() {
-            const res = await fetch('/api/review/due');
+            loadReviewWords();
+        }
+
+        async function loadReviewWords() {
+            const endpoint = reviewMode === 'all' ? '/api/review/all' : '/api/review/due';
+            const res = await fetch(endpoint);
             currentWords = await res.json();
             currentIndex = 0;
             showCard();
         }
-        
+
         function showCard() {
             const container = document.getElementById('reviewContainer');
-            
+
             if (currentIndex >= currentWords.length) {
-                container.innerHTML = '<div class="done">🎉 All done! No more words due.</div>';
+                const message = reviewMode === 'all'
+                    ? 'All words practiced. Switch back anytime for another round.'
+                    : 'All done. No more words due.';
+                container.innerHTML = `<div class="done">${message}</div>`;
                 return;
             }
-            
+
             const word = currentWords[currentIndex];
+            const audioText = encodeURIComponent(`${word.word}. ${word.example_sentence}`);
             container.innerHTML = `
                 <div class="review-card">
                     <div class="word-front">
-                        <h2>${word.word}</h2>
-                        <p class="phonetic">${word.phonetic || ''}</p>
-                        <p class="example">"${word.example_sentence}"</p>
+                        <h2>${escapeHtml(word.word)}</h2>
+                        <p class="phonetic">${escapeHtml(word.phonetic || '')}</p>
+                        <p class="example">"${escapeHtml(word.example_sentence)}"</p>
                     </div>
                     <div class="word-back hidden">
-                        <p class="meaning">${word.chinese_meaning}</p>
-                        <p class="translation">${word.chinese_translation || ''}</p>
+                        <p class="meaning">${escapeHtml(word.chinese_meaning)}</p>
+                        <p class="translation">${escapeHtml(word.chinese_translation || '')}</p>
                     </div>
                     <div class="actions">
-                        <button onclick="reveal()" class="btn-reveal">👁️ Reveal Meaning</button>
+                        <button onclick="speak(decodeURIComponent('${audioText}'))" class="btn-secondary">Audio</button>
+                        <button onclick="reveal()" class="btn-reveal">Reveal Meaning</button>
                         <div class="review-actions hidden">
-                            <button onclick="submitReview(false)" class="btn-hard">❌ Again</button>
-                            <button onclick="submitReview(true)" class="btn-easy">✅ Good</button>
+                            <button onclick="submitReview(false)" class="btn-hard">Again</button>
+                            <button onclick="submitReview(true)" class="btn-easy">Good</button>
                         </div>
                     </div>
                 </div>
                 <div class="progress">${currentIndex + 1} / ${currentWords.length}</div>
             `;
         }
-        
+
         function reveal() {
             document.querySelector('.word-back').classList.remove('hidden');
             document.querySelector('.btn-reveal').classList.add('hidden');
             document.querySelector('.review-actions').classList.remove('hidden');
         }
-        
+
         async function submitReview(known) {
             const word = currentWords[currentIndex];
             await fetch(`/api/review/${word.id}?known=${known}`, { method: 'POST' });
             currentIndex++;
             showCard();
         }
-        
+
         loadDueWords();
     </script>
 </body>

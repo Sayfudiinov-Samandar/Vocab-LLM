@@ -4,29 +4,130 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Vocabulary Assistant</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📚 AI Vocabulary Assistant</h1>
-            <p>Learn words with real news examples</p>
-        </header>
-        
-        <div class="add-section">
-            <input type="text" id="wordInput" placeholder="Enter a word (e.g., sanction)" />
-            <button onclick="addWord()">➕ Add Word</button>
-            <button onclick="loadWords()">🔄 Refresh</button>
-            <a href="review.html" class="btn-review">🎯 Review</a>
+    <nav class="top-nav">
+        <a class="brand" href="index.html">Vocab Agent</a>
+        <div class="nav-links" id="navLinks">
+            <a href="#agent">Agent Search</a>
+            <a href="#vocabulary">Vocabulary</a>
+            <a href="review.html">Review</a>
+            <a href="quiz.html">Quiz</a>
+            <a href="history.html">History</a>
         </div>
-        
-        <div id="loading" class="loading hidden">Searching real news sources...</div>
-        
-        <div id="wordList" class="word-list">
-            <!-- Words loaded dynamically -->
-        </div>
-    </div>
-    
-    <script src="app.js"></script>
+        <button class="menu-button" onclick="toggleMenu()">Menu</button>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="hero-copy">
+                <span class="eyebrow">OpenClaw + AI Agent learning system</span>
+                <h1>Update your vocabulary without limits</h1>
+                <p>Search real English news, extract authentic examples, generate Chinese explanations, and review words with spaced repetition.</p>
+                <div class="hero-actions">
+                    <a href="#agent" class="primary-link">Explore Agent</a>
+                    <a href="review.html" class="secondary-link">Start Review</a>
+                </div>
+                <div class="hero-metrics" id="stats">
+                    <!-- Stats loaded dynamically -->
+                </div>
+            </div>
+            <div class="hero-visual" aria-label="Student learning vocabulary">
+                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=700&q=80" alt="Students studying with books">
+                <div class="hero-badge">
+                    <strong>Agent</strong>
+                    <span>real news examples</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="feature-strip">
+            <article>
+                <strong>Example Search</strong>
+                <span>Tavily + trusted English sources</span>
+            </article>
+            <article>
+                <strong>Tutor Agent</strong>
+                <span>Qwen metadata and memory tips</span>
+            </article>
+            <article>
+                <strong>OpenClaw IM</strong>
+                <span>Telegram commands for demos</span>
+            </article>
+        </section>
+
+        <section id="agent" class="agent-panel">
+            <div class="agent-left">
+                <div>
+                    <span class="eyebrow">Example Search Agent</span>
+                    <h2>Add a word from authentic sources</h2>
+                </div>
+                <div class="agent-form">
+                    <input type="text" id="wordInput" placeholder="Enter a word, e.g. sanction">
+                    <input type="text" id="tagInput" placeholder="Tags, e.g. news, exam">
+                    <button onclick="addWord()">Run Agent</button>
+                </div>
+                <div id="loading" class="agent-loading hidden">
+                    <span></span>
+                    Searching English sources and generating tutor data...
+                </div>
+            </div>
+            <div class="latest-word-panel">
+                <span class="eyebrow">Last added</span>
+                <div id="latestWordCard" class="latest-word-card">
+                    <!-- Latest word loaded dynamically -->
+                </div>
+            </div>
+        </section>
+ 
+
+        <section id="vocabulary" class="featured-section">
+            <div class="section-heading split">
+                <div>
+                    <span class="eyebrow">Featured vocabulary</span>
+                    <h2>Your learning cards</h2>
+                </div>
+                <p>Cards show source links, generated tutor data, tags, and review signals.</p>
+            </div>
+            <div class="toolbar vocabulary-toolbar">
+                <input type="search" id="searchInput" placeholder="Search word, meaning, or tag">
+                <select id="filterSelect" onchange="loadWords()">
+                    <option value="">All words</option>
+                    <option value="favorite">Favorites</option>
+                    <option value="hard">Hard words</option>
+                    <option value="fallback">AI fallback examples</option>
+                </select>
+                <button onclick="loadWords()">Search</button>
+                <button onclick="toggleAutoplay()" id="autoplayBtn">Auto-play Off</button>
+                <a class="export-link" href="/api/vocab/export.csv">Export CSV</a>
+            </div>
+            <div id="wordList" class="word-list">
+                <!-- Words loaded dynamically -->
+            </div>
+        </section>
+
+        <section class="demo-grid">
+            <article class="command-card">
+                <span class="eyebrow">OpenClaw demo</span>
+                <h2>IM commands to show in your video</h2>
+                <div class="command-list">
+                    <code>add abandon</code>
+                    <code>query abandon</code>
+                    <code>update abandon | exam word</code>
+                    <code>review</code>
+                    <code>quiz</code>
+                    <code>delete abandon</code>
+                </div>
+            </article>
+            <article class="history-card">
+                <span class="eyebrow">Learning history</span>
+                <h2>Recent activity</h2>
+                <div id="historyPreview" class="history-list">Loading records...</div>
+            </article>
+        </section>
+    </main>
+
+    <script src="assets/js/app.js"></script>
 </body>
 </html>

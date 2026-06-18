@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Mode</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="page-header">
+            <a href="index.html" class="back-link">Back to dashboard</a>
+            <a href="review.html" class="secondary-link">Review</a>
+        </header>
+        <section class="quiz-card">
+            <span class="eyebrow">Quiz mode</span>
+            <h1>Choose the correct meaning</h1>
+            <div id="quizBox" class="quiz-options">Loading quiz...</div>
+        </section>
+    </div>
+
+    <script>
+        let currentQuestion = null;
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        async function loadQuiz() {
+            const box = document.getElementById('quizBox');
+            try {
+                const res = await fetch('/api/quiz');
+                currentQuestion = await res.json();
+                if (!res.ok) throw new Error(currentQuestion.detail || 'Quiz unavailable.');
+                box.innerHTML = `
+                    <div class="section-card">
+                        <h2>${escapeHtml(currentQuestion.word)} <span class="phonetic">${escapeHtml(currentQuestion.phonetic || '')}</span></h2>
+                        <p class="example">"${escapeHtml(currentQuestion.example_sentence || '')}"</p>
+                    </div>
+                    ${currentQuestion.options.map(option => `
+                        <button onclick="submitAnswer(${option.index})">${String.fromCharCode(65 + option.index)}. ${escapeHtml(option.meaning)}</button>
+                    `).join('')}
+                `;
+            } catch (error) {
+                box.innerHTML = `<div class="empty-state">${escapeHtml(error.message || 'Need at least 4 words for quiz.')}</div>`;
+            }
+        }
+
+        async function submitAnswer(index) {
+            const res = await fetch('/api/quiz', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    word_id: currentQuestion.word_id,
+                    selected_index: index,
+                    correct_index: currentQuestion.correct_index,
+                    user_id: 1
+                })
+            });
+            const result = await res.json();
+            alert(result.correct ? 'Correct. Progress saved.' : 'Not quite. This word is scheduled for review.');
+            loadQuiz();
+        }
+
+        loadQuiz();
+    </script>
+</body>
+</html>

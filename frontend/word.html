@@ -4,65 +4,283 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Word Detail</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <a href="index.html" class="back-link">← Back to list</a>
-        <div id="wordDetail" class="word-detail">
-            <!-- Detail loaded dynamically -->
+    <div class="page-shell word-detail-shell">
+        <header class="page-header">
+            <a href="index.html" class="back-link">Back to dashboard</a>
+            <a href="review.html" class="secondary-link">Review</a>
+        </header>
+
+        <div class="word-detail-layout">
+            <main id="wordDetail" class="word-detail-main">
+                <!-- Selected word loaded dynamically -->
+            </main>
+
+            <aside class="word-side-panel">
+                <div class="side-panel-header">
+                    <span class="eyebrow">Vocabulary list</span>
+                    <h2>Choose another word</h2>
+                    <input type="search" id="sideSearch" placeholder="Search saved words">
+                </div>
+                <div id="wordSideList" class="word-side-list">
+                    <!-- Other words loaded dynamically -->
+                </div>
+            </aside>
         </div>
     </div>
+
     <script>
         const params = new URLSearchParams(window.location.search);
-        const wordId = params.get('id');
-        
-        async function loadWord() {
-            const res = await fetch(`/api/words/${wordId}`);
-            const word = await res.json();
-            
-            const collocations = JSON.parse(word.collocations || '[]');
-            const synonyms = JSON.parse(word.synonyms || '[]');
-            const antonyms = JSON.parse(word.antonyms || '[]');
-            
-            document.getElementById('wordDetail').innerHTML = `
-                <div class="word-card detail">
-                    <h1>${word.word} <span class="phonetic">${word.phonetic || ''}</span></h1>
-                    <div class="pos">${word.part_of_speech || ''}</div>
-                    <div class="meaning">${word.chinese_meaning || ''}</div>
-                    
-                    <div class="section">
-                        <h3>📝 Example</h3>
-                        <p class="example">"${word.example_sentence}"</p>
-                        <p class="translation">${word.chinese_translation || ''}</p>
-                        <a href="${word.source_url}" target="_blank" class="source-link">
-                            📰 Source: ${word.source_name || 'News'} ↗
-                        </a>
-                    </div>
-                    
-                    <div class="section">
-                        <h3>📌 Collocations</h3>
-                        <ul>${collocations.map(c => `<li>${c}</li>`).join('')}</ul>
-                    </div>
-                    
-                    <div class="section">
-                        <h3>🔄 Synonyms & Antonyms</h3>
-                        <p><strong>Synonyms:</strong> ${synonyms.join(', ')}</p>
-                        <p><strong>Antonyms:</strong> ${antonyms.join(', ')}</p>
-                    </div>
-                    
-                    <button onclick="deleteWord(${word.id})" class="btn-delete">🗑️ Delete</button>
-                </div>
-            `;
+        let selectedWordId = params.get('id');
+        let allWords = [];
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
         }
-        
+
+        function parseJsonList(value) {
+            try {
+                const parsed = JSON.parse(value || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function speak(text) {
+            if (!('speechSynthesis' in window)) {
+                alert('Audio is not supported in this browser.');
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.92;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function initWordPage() {
+            await loadAllWords();
+            if (!selectedWordId && allWords.length) {
+                selectedWordId = String(allWords[0].id);
+            }
+            renderSideList();
+            await loadWord(selectedWordId);
+
+            document.getElementById('sideSearch').addEventListener('input', renderSideList);
+        }
+
+        async function loadAllWords() {
+            const res = await fetch('/api/words');
+            allWords = await res.json();
+        }
+
+        function renderSideList() {
+            const list = document.getElementById('wordSideList');
+            const query = document.getElementById('sideSearch')?.value.trim().toLowerCase() || '';
+            const visibleWords = allWords.filter(word => {
+                const tags = parseJsonList(word.tags).join(' ').toLowerCase();
+                return !query
+                    || String(word.word || '').toLowerCase().includes(query)
+                    || String(word.chinese_meaning || '').toLowerCase().includes(query)
+                    || tags.includes(query);
+            });
+
+            if (!visibleWords.length) {
+                list.innerHTML = '<div class="empty-state">No saved words found.</div>';
+                return;
+            }
+
+            list.innerHTML = visibleWords.map(word => {
+                const active = String(word.id) === String(selectedWordId);
+                const tags = parseJsonList(word.tags).slice(0, 3);
+                return `
+                    <button class="side-word-card ${active ? 'active' : ''}" onclick="selectWord(${word.id})">
+                        <span class="side-word-title">${escapeHtml(word.word)}</span>
+                        <span class="side-word-meaning">${escapeHtml(word.chinese_meaning || 'No meaning yet')}</span>
+                        <span class="side-word-meta">
+                            Level ${escapeHtml(word.difficulty || 2)}
+                            ${Number(word.favorite) === 1 ? ' | Favorite' : ''}
+                        </span>
+                        <span class="tag-row">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        async function selectWord(id) {
+            selectedWordId = String(id);
+            history.replaceState(null, '', `word.html?id=${selectedWordId}`);
+            renderSideList();
+            await loadWord(selectedWordId);
+            document.getElementById('wordDetail').scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function loadWord(id = selectedWordId) {
+            if (!id) {
+                document.getElementById('wordDetail').innerHTML = '<div class="empty-state">No words yet. Add words from the dashboard first.</div>';
+                return;
+            }
+
+            const res = await fetch(`/api/words/${id}`);
+            const word = await res.json();
+            selectedWordId = String(word.id);
+
+            const collocations = parseJsonList(word.collocations);
+            const synonyms = parseJsonList(word.synonyms);
+            const antonyms = parseJsonList(word.antonyms);
+            const tags = parseJsonList(word.tags);
+            const audioText = encodeURIComponent(`${word.word}. ${word.example_sentence}`);
+            const source = word.source_url
+                ? `<a href="${escapeHtml(word.source_url)}" target="_blank" class="source-link">Source: ${escapeHtml(word.source_name || 'News')}</a>`
+                : `<span class="source-warning">AI fallback example, verify before formal use.</span>`;
+
+            document.getElementById('wordDetail').innerHTML = `
+                <article class="detail-card sticky-detail-card">
+                    <div class="card-topline">
+                        <div>
+                            <span class="eyebrow">Vocabulary detail</span>
+                            <h1>${escapeHtml(word.word)} <span class="phonetic">${escapeHtml(word.phonetic || '')}</span></h1>
+                            <div class="meta-row">
+                                <span>${escapeHtml(word.part_of_speech || 'word')}</span>
+                                <span>Level ${escapeHtml(word.difficulty || 2)}</span>
+                                ${Number(word.favorite) === 1 ? '<span>Favorite</span>' : ''}
+                                <span>${escapeHtml(word.source_type || 'authentic')}</span>
+                            </div>
+                        </div>
+                        <button onclick="speak(decodeURIComponent('${audioText}'))">Audio</button>
+                    </div>
+
+                    <div class="detail-grid compact-detail-grid">
+                        <section class="section-card">
+                            <h2>Meaning</h2>
+                            <p class="meaning">${escapeHtml(word.chinese_meaning || '')}</p>
+                            <p class="english-definition">${escapeHtml(word.english_definition || '')}</p>
+                            <p class="translation">${escapeHtml(word.memory_tip || 'No memory tip yet.')}</p>
+                        </section>
+
+                        <section class="section-card">
+                            <h2>Authentic Example</h2>
+                            <p class="example">"${escapeHtml(word.example_sentence)}"</p>
+                            <p class="translation">${escapeHtml(word.chinese_translation || '')}</p>
+                            ${source}
+                        </section>
+
+                        <section class="section-card">
+                            <h2>Tutor Agent Data</h2>
+                            <p><strong>Collocations:</strong> ${collocations.map(escapeHtml).join(', ') || '-'}</p>
+                            <p><strong>Synonyms:</strong> ${synonyms.map(escapeHtml).join(', ') || '-'}</p>
+                            <p><strong>Antonyms:</strong> ${antonyms.map(escapeHtml).join(', ') || '-'}</p>
+                            <div class="tag-row">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
+                        </section>
+
+                        <section class="section-card">
+                            <h2>Review History</h2>
+                            <div id="historyList" class="history-list">Loading history...</div>
+                        </section>
+                    </div>
+
+                    <div class="actions" style="justify-content:flex-start">
+                        <button onclick="showEditForm()" type="button">Edit Word</button>
+                        <button onclick="deleteWord(${word.id})" class="danger-button" type="button">Delete Word</button>
+                    </div>
+
+                    <section id="editSection" class="section-card hidden" style="margin-top:18px">
+                        <h2>Edit Word</h2>
+                        <form id="editForm" class="edit-form">
+                            <label>Chinese meaning <input name="chinese_meaning" value="${escapeHtml(word.chinese_meaning || '')}"></label>
+                            <label>English definition <input name="english_definition" value="${escapeHtml(word.english_definition || '')}"></label>
+                            <label>Part of speech <input name="part_of_speech" value="${escapeHtml(word.part_of_speech || '')}"></label>
+                            <label>Difficulty <input type="number" min="1" max="5" name="difficulty" value="${escapeHtml(word.difficulty || 2)}"></label>
+                            <label>Tags <input name="tags" value="${escapeHtml(tags.join(', '))}"></label>
+                            <label>Memory tip <textarea name="memory_tip">${escapeHtml(word.memory_tip || '')}</textarea></label>
+                            <label>Notes <textarea name="notes">${escapeHtml(word.notes || '')}</textarea></label>
+                            <label>Example <textarea name="example_sentence">${escapeHtml(word.example_sentence || '')}</textarea></label>
+                            <label>Translation <textarea name="chinese_translation">${escapeHtml(word.chinese_translation || '')}</textarea></label>
+                            <label><input type="checkbox" name="favorite" ${Number(word.favorite) === 1 ? 'checked' : ''}> Favorite word</label>
+                            <button type="submit">Save Changes</button>
+                        </form>
+                    </section>
+                </article>
+            `;
+
+            document.getElementById('editForm').addEventListener('submit', event => saveWord(event, word));
+            loadHistory();
+        }
+
+        function showEditForm() {
+            document.getElementById('editSection')?.classList.remove('hidden');
+            document.getElementById('editSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function saveWord(event, word) {
+            event.preventDefault();
+            const form = new FormData(event.target);
+            const payload = {
+                chinese_meaning: form.get('chinese_meaning'),
+                english_definition: form.get('english_definition'),
+                part_of_speech: form.get('part_of_speech'),
+                difficulty: Number(form.get('difficulty') || 2),
+                tags: String(form.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean),
+                memory_tip: form.get('memory_tip'),
+                notes: form.get('notes'),
+                example_sentence: form.get('example_sentence'),
+                chinese_translation: form.get('chinese_translation'),
+                favorite: form.get('favorite') === 'on'
+            };
+
+            const res = await fetch(`/api/words/${word.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                alert('Could not save changes.');
+                return;
+            }
+            await loadAllWords();
+            renderSideList();
+            await loadWord(word.id);
+        }
+
+        async function loadHistory() {
+            const res = await fetch('/api/review/history');
+            const history = await res.json();
+            const filtered = history.filter(item => String(item.word_id) === String(selectedWordId)).slice(0, 8);
+            const historyList = document.getElementById('historyList');
+            if (!filtered.length) {
+                historyList.innerHTML = '<p>No review history yet.</p>';
+                return;
+            }
+            historyList.innerHTML = filtered.map(item => `
+                <div class="history-item">
+                    <strong>${item.known ? 'Known' : 'Again'}</strong>
+                    <span>quality ${item.quality}</span>
+                    <span>next ${escapeHtml(item.next_review || '-')}</span>
+                </div>
+            `).join('');
+        }
+
         async function deleteWord(id) {
             if (!confirm('Delete this word?')) return;
             await fetch(`/api/words/${id}`, { method: 'DELETE' });
-            window.location.href = 'index.html';
+            await loadAllWords();
+            const nextWord = allWords[0];
+            if (!nextWord) {
+                window.location.href = 'index.html';
+                return;
+            }
+            await selectWord(nextWord.id);
         }
-        
-        loadWord();
+
+        initWordPage();
     </script>
 </body>
 </html>
